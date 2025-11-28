@@ -1,8 +1,43 @@
 -- [[ KONFIGURASI DISCORD ]] --
 local _G_WebhookURL = "https://discord.com/api/webhooks/1442845013057863743/lJMKfMxHsoEw4UGnZ4mRed_JIK8mFNElRRqZ9imqSC-DdeWrYLIHufHpGf1KfNPpYtw4"
 
+-- UTILITIES BARU: Fungsi untuk mengurai data ikan dari pesan
+local function ParseFishData(msg)
+    local data = {
+        FishName = "Unknown Fish",
+        Weight = "N/A",
+        Mutation = "None",
+        PlayerName = "N/A"
+    }
+    
+    -- Pola 1: Mencari format umum "Player menangkap Fish (Weight)"
+    -- Contoh: "[PlayerName] menangkap [FishName] ([Weight])"
+    local playerMatch, fishMatch, weightMatch = msg:match("(.+) menangkap (.+) %(%s*([%d%.%s]+[kKmMBB]?)%)")
+    
+    if playerMatch and fishMatch and weightMatch then
+        -- Hapus prefix [Server]: atau [System]: jika masih ada
+        playerMatch = playerMatch:gsub("^%[Server%]:%s*", ""):gsub("^%[System%]:%s*", ""):gsub("^%s+", "")
+        
+        data.PlayerName = playerMatch
+        data.FishName = fishMatch
+        data.Weight = weightMatch
+    else
+        -- Jika tidak cocok, gunakan pesan utuh sebagai nama ikan (untuk log non-player/item)
+        data.FishName = msg
+        data.PlayerName = "System/Server"
+    end
+    
+    -- Mencari informasi mutasi di akhir pesan (contoh: Mutation: Glistening)
+    local mutationMatch = msg:match("Mutation:%s*(%a+)")
+    if mutationMatch then
+        data.Mutation = mutationMatch
+    end
+    
+    return data
+end
+
 -- Fungsi Pengirim Discord (Embed Rapi)
-local function SendToDiscord(msg, rarity, colorDec, source)
+local function SendToDiscord(msg, rarity, colorDec, source, fishData) -- <--- TAMBAH fishData
     if _G_WebhookURL == "" or not _G_WebhookURL:find("http") then return end
 
     -- Deteksi Executor (Synapse, Krnl, Fluxus, dll)
@@ -12,22 +47,50 @@ local function SendToDiscord(msg, rarity, colorDec, source)
     local player = game.Players.LocalPlayer
     local playerName = player.Name
     local playerDisplay = player.DisplayName
+    
+    -- LOGIKA UNTUK GAMBAR IKAN (THUMBNAIL)
+    local fishImageURL = nil
+    if rarity == "Secret" or rarity == "Custom Target" then
+        -- GANTI URL INI DENGAN URL GAMBAR IKAN SECRET/CUSTOM YANG ANDA INGINKAN
+        -- URL ini hanya akan digunakan jika rarity-nya Secret atau Custom Target
+        fishImageURL = "https://i.imgur.com/eQJtOqB.png" -- Contoh Placeholder
+    end
 
     local embedData = {
-        ["username"] = "Frayhub Notification",
+        ["username"] = "**Secret Notification**", -- <--- Diubah menjadi BOLD
         ["avatar_url"] = "https://share.google/images/qvmsQaZadX4enqVzr",
         ["embeds"] = {{
-            ["title"] = "🎣 " .. rarity .. " Catch Detected!",
-            ["description"] = "**Item:** " .. msg, -- Pesan sudah bersih di sini
+            ["title"] = "🎣 **" .. rarity .. "** Catch Detected!", -- <--- Diubah menjadi BOLD
+            ["description"] = "**Original Message:** " .. msg, -- Pesan mentah tetap di sini sebagai cadangan
             ["color"] = colorDec,
+            
+            -- PENAMBAHAN THUMBNAIL (GAMBAR IKAN)
+            ["thumbnail"] = fishImageURL and { ["url"] = fishImageURL } or nil, -- Menambahkan gambar jika ada
+            
+            -- PERUBAHAN SUSUNAN FIELDS
             ["fields"] = {
                 {
-                    ["name"] = "👤 Player",
-                    ["value"] = playerDisplay .. " (@" .. playerName .. ")",
+                    ["name"] = "👤 Name",
+                    ["value"] = "**"..fishData.PlayerName.."**", 
                     ["inline"] = true
                 },
                 {
-                    ["name"] = "📍 Source",
+                    ["name"] = "🐠 Fish",
+                    ["value"] = "**"..fishData.FishName.."**", 
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "⚖️ Weight",
+                    ["value"] = "**"..fishData.Weight.."**", 
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🧬 Mutation",
+                    ["value"] = "**"..fishData.Mutation.."**", 
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "📍 Source Log",
                     ["value"] = source,
                     ["inline"] = true
                 }
@@ -62,55 +125,55 @@ local Window = Rayfield:CreateWindow({
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
     ConfigurationSaving = {
-       Enabled = true,
-       FileName = "Frayhub_Config"
+        Enabled = true,
+        FileName = "Frayhub_Config"
     },
     KeySystem = true,
     KeySettings = {
-       Title = "Frayhub Key",
-       Subtitle = "Link In Discord Server",
-       Note = "Join Server From Misc Tab",
-       FileName = "Frayhubkey",
-       SaveKey = true,
-       GrabKeyFromSite = true,
-       Key = {"https://pastebin.com/raw/DttgzM1m"}
+        Title = "Frayhub Key",
+        Subtitle = "Link In Discord Server",
+        Note = "Join Server From Misc Tab",
+        FileName = "Frayhubkey",
+        SaveKey = true,
+        GrabKeyFromSite = true,
+        Key = {"https://pastebin.com/raw/DttgzM1m"}
     }
 })
 
 -- Variabel Global
 local _G_InfJumpConnection = nil
 local _G_NoclipConnection = nil
-local _G_SelectedPlayerToTP = nil 
+local _G_SelectedPlayerToTP = nil    
 local _G_SelectedAreaToTP = "Lost Isle"
-local _G_AutoUpdateStats = false 
-local _G_UISpy = false 
-local _G_LastPlayerPositions = {} 
-local _G_FishingTracker = {} 
-local _G_SortMethod = "Name" 
-local _G_FavoriteFilterList = {} 
+local _G_AutoUpdateStats = false    
+local _G_UISpy = false    
+local _G_LastPlayerPositions = {}    
+local _G_FishingTracker = {}    
+local _G_SortMethod = "Name"    
+local _G_FavoriteFilterList = {}    
 
 -- Variabel Log System
 local _G_ChatScan = false
 local _G_ChatConnections = {}
 local _G_LogHistory = {}
-local _G_RarityFilters = {} 
-local LogParagraph = nil 
+local _G_RarityFilters = {}    
+local LogParagraph = nil    
 -- [BARU] Variabel Custom List
-local _G_CustomFishList = {} 
+local _G_CustomFishList = {}    
 local CustomFishDisplayParagraph = nil
 
 -- UI Variables
-local InfoParagraph = nil 
+local InfoParagraph = nil    
 
 -- DATABASE ZONA
 local IslandZones = {
-    {Name = "Fisherman Island", Pos = Vector3.new(79, 17, 2848),      Radius = 305},
+    {Name = "Fisherman Island", Pos = Vector3.new(79, 17, 2848),       Radius = 305},
     {Name = "Esoteric Depths",  Pos = Vector3.new(3226, -1302, 1407), Radius = 305},
-    {Name = "Sacred Temple",    Pos = Vector3.new(1475, -21, -631),   Radius = 305},
-    {Name = "Ancient Jungle",   Pos = Vector3.new(1489, 7, -430),     Radius = 477.5} 
+    {Name = "Sacred Temple",    Pos = Vector3.new(1475, -21, -631),    Radius = 305},
+    {Name = "Ancient Jungle",   Pos = Vector3.new(1489, 7, -430),       Radius = 477.5}    
 }
 
--- UTILITIES
+-- UTILITIES (LAINNYA)
 local function FormatShortNum(n)
     local num = tonumber(n) or 0
     if num >= 1000000000 then return string.format("%.2fB", num/1e9):gsub("%.00","")
@@ -127,15 +190,15 @@ end
 
 local function FormatIconRight(text, icon, length)
     local s = tostring(text)
-    local maxTextLen = length - 1 
+    local maxTextLen = length - 1    
     if #s > maxTextLen then s = string.sub(s, 1, maxTextLen) end
-    local spaceCount = length - #s - 1 
+    local spaceCount = length - #s - 1    
     if spaceCount < 0 then spaceCount = 0 end
     return s .. string.rep(" ", spaceCount) .. icon
 end
 
 local function ParseAbbr(str)
-    str = str:lower():gsub(",", "") 
+    str = str:lower():gsub(",", "")    
     local val = tonumber(str:match("[%d.]+")) or 0
     if str:find("k") then val = val * 1000 end
     if str:find("m") then val = val * 1000000 end
@@ -155,7 +218,7 @@ local function GetDisplayStatData(plr)
     local rawVal = 0
     local displayStr = "1/0"
     if plr:FindFirstChild("leaderstats") then
-        local rare = plr.leaderstats:FindFirstChild("Rarest Fish") or plr.leaderstats:FindFirstChild("Rarest") 
+        local rare = plr.leaderstats:FindFirstChild("Rarest Fish") or plr.leaderstats:FindFirstChild("Rarest")    
         if rare then
             local valString = tostring(rare.Value)
             local maxVal = 0
@@ -193,7 +256,7 @@ MainTab:CreateSlider({
 })
 
 MainTab:CreateToggle({
-    Name = "Infinite Jump", CurrentValue = false, Flag = "InfJump", 
+    Name = "Infinite Jump", CurrentValue = false, Flag = "InfJump",    
     Callback = function(Value)
        if Value then
            _G_InfJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
@@ -206,7 +269,7 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateToggle({
-    Name = "Noclip", CurrentValue = false, Flag = "Noclip", 
+    Name = "Noclip", CurrentValue = false, Flag = "Noclip",    
     Callback = function(Value)
        if Value then
            _G_NoclipConnection = game:GetService("RunService").Stepped:Connect(function()
@@ -231,14 +294,14 @@ local DataTab = Window:CreateTab("📊 Data", nil)
 local DataSection = DataTab:CreateSection("Live Player Tracker & Filter")
 
 DataTab:CreateDropdown({
-    Name = "Sort By", Options = {"Name", "Location", "Rarest Fish"}, CurrentOption = {"Name"}, MultipleOptions = false, Flag = "SortDropdown", 
+    Name = "Sort By", Options = {"Name", "Location", "Rarest Fish"}, CurrentOption = {"Name"}, MultipleOptions = false, Flag = "SortDropdown",    
     Callback = function(Options) _G_SortMethod = Options[1] end,
 })
 
 local FavoriteDropdown = DataTab:CreateDropdown({
     Name = "⭐ Filter / Favorite Players",
     Options = GetPlayerNamesForList(),
-    CurrentOption = {}, 
+    CurrentOption = {},    
     MultipleOptions = true,
     Flag = "FavoritePlayerFilter",
     Callback = function(Options)
@@ -258,10 +321,10 @@ DataTab:CreateButton({
 local StatsParagraph = DataTab:CreateParagraph({Title = "( Loading... )", Content = "Activate Auto Update to see list..."})
 
 local function UpdatePlayerData()
-    local tempStats = {} 
+    local tempStats = {}    
     local players = game.Players:GetPlayers()
     local playerCount = #players
-    local statusIcon = playerCount >= 20 and "🔴" or "🟢" 
+    local statusIcon = playerCount >= 20 and "🔴" or "🟢"    
     
     if InfoParagraph then
         InfoParagraph:Set({Title = "Status", Content = "Active: " .. playerCount .. "/" .. game.Players.MaxPlayers})
@@ -298,7 +361,7 @@ local function UpdatePlayerData()
                     if (currentPos - lastPos).Magnitude > 0.2 then rawMoveStatus = "Mov"; moveIcon = "🟢"
                     else rawMoveStatus = "Idle"; moveIcon = "🟡" end
                 else rawMoveStatus = "Idle"; moveIcon = "🟡" end
-                _G_LastPlayerPositions[player.Name] = currentPos 
+                _G_LastPlayerPositions[player.Name] = currentPos    
                 
                 local currentCaught = GetCaughtAmount(player)
                 rawRarestValue, rawStatStr = GetDisplayStatData(player)
@@ -317,13 +380,13 @@ local function UpdatePlayerData()
                     end
                 end
                 
-                local displayString = string.format('<font face="Code">|%s|%s|%s|%s|%s|</font>', 
-                    "<b>"..FormatFixed(" "..player.Name.." ",15).."</b>", FormatFixed(rawPlace,16), 
+                local displayString = string.format('<font face="Code">|%s|%s|%s|%s|%s|</font>',    
+                    "<b>"..FormatFixed(" "..player.Name.." ",15).."</b>", FormatFixed(rawPlace,16),    
                     FormatFixed(" "..rawStatStr.." ",9), FormatIconRight(rawFishStatus,fishIcon,7), FormatIconRight(rawMoveStatus,moveIcon,7))
                 table.insert(tempStats, {Name=player.Name, Place=rawPlace, Rarest=rawRarestValue, Display=displayString})
             else
-                local displayString = string.format('<font face="Code">|%s|%s|%s|%s|%s|</font>', 
-                    "<b>"..FormatFixed(" "..player.Name.." ",15).."</b>", FormatFixed("Dead/Loading",16), 
+                local displayString = string.format('<font face="Code">|%s|%s|%s|%s|%s|</font>',    
+                    "<b>"..FormatFixed(" "..player.Name.." ",15).."</b>", FormatFixed("Dead/Loading",16),    
                     FormatFixed(" - ",9), FormatIconRight("Wait","🔴",7), FormatIconRight("Wait","🔴",7))
                 table.insert(tempStats, {Name=player.Name, Place="Dead/Loading", Rarest=-1, Display=displayString})
             end
@@ -340,7 +403,7 @@ local function UpdatePlayerData()
 end
 
 local ToggleAutoUpdate = DataTab:CreateToggle({
-    Name = "Auto Update Data (Every 1s)", CurrentValue = false, Flag = "AutoUpdateStats", 
+    Name = "Auto Update Data (Every 1s)", CurrentValue = false, Flag = "AutoUpdateStats",    
     Callback = function(Value)
        _G_AutoUpdateStats = Value
        if Value then task.spawn(function() while _G_AutoUpdateStats do UpdatePlayerData() task.wait(1) end end) end
@@ -356,8 +419,8 @@ LogTab:CreateSection("Chat Scanner")
 
 LogTab:CreateDropdown({
     Name = "🎨 Log Rarity Filter (Check to Enable)",
-    Options = {"Epic", "Legendary", "Mythic", "Secret"}, 
-    CurrentOption = {}, 
+    Options = {"Epic", "Legendary", "Mythic", "Secret"},    
+    CurrentOption = {},    
     MultipleOptions = true,
     Flag = "LogRarityFilter",
     Callback = function(Options)
@@ -417,7 +480,7 @@ local function CheckRarity(msg)
         return "Legendary"
     end
 
-    if string.find(msg, "Mythic") or string.find(msg, "Abyssal") then 
+    if string.find(msg, "Mythic") or string.find(msg, "Abyssal") then    
         return "Mythic"
     end
 
@@ -442,6 +505,9 @@ local function ProcessMessage(msg, source)
     -- 2. BERSIHKAN PREFIX DAN SPASI
     cleanMsg = cleanMsg:gsub("^%[Server%]:%s*", ""):gsub("^%[System%]:%s*", "")
     cleanMsg = cleanMsg:gsub("^%s+", "")
+    
+    -- TAMBAH: Mengurai data ikan
+    local fishData = ParseFishData(cleanMsg) -- <--- PARSING DATA IKAN
     
     -- [BARU] 2.5 CEK APAKAH ADA DI CUSTOM LIST
     local isCustomTarget = false
@@ -473,12 +539,12 @@ local function ProcessMessage(msg, source)
         end
     end
     
-    if not isAllowed then return end 
+    if not isAllowed then return end    
 
     -- 5. Tampilkan Log di UI
     local timestamp = os.date("%X")
-    local msgColor = "#FFFFFF" 
-    local discordColor = 16777215 
+    local msgColor = "#FFFFFF"    
+    local discordColor = 16777215    
 
     if msgRarity == "Epic" then
         discordColor = 10181046 -- Ungu
@@ -502,7 +568,7 @@ local function ProcessMessage(msg, source)
 
     -- 6. KIRIM KE DISCORD (Versi Bersih)
     pcall(function()
-        SendToDiscord(cleanMsg, msgRarity, discordColor, source)
+        SendToDiscord(cleanMsg, msgRarity, discordColor, source, fishData) -- <--- TAMBAH fishData
     end)
 end
 
@@ -574,14 +640,14 @@ LogTab:CreateButton({
 local TeleportTab = Window:CreateTab("📍 Teleport", nil)
 TeleportTab:CreateSection("Target Player Teleport")
 local PlayerDropdown = TeleportTab:CreateDropdown({
-    Name = "Select Player", Options = GetPlayerNamesForList(), CurrentOption = {""}, MultipleOptions = false, Flag = "PlayerSelect", 
+    Name = "Select Player", Options = GetPlayerNamesForList(), CurrentOption = {""}, MultipleOptions = false, Flag = "PlayerSelect",    
     Callback = function(Options) _G_SelectedPlayerToTP = Options[1] end,
 })
 TeleportTab:CreateButton({
     Name = "🔄 Refresh List", Callback = function() PlayerDropdown:Refresh(GetPlayerNamesForList(), true) end,
 })
 TeleportTab:CreateButton({
-    Name = "🚀 Teleport to Selected Player", 
+    Name = "🚀 Teleport to Selected Player",    
     Callback = function()
        if _G_SelectedPlayerToTP and game.Players:FindFirstChild(_G_SelectedPlayerToTP) then
            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players[_G_SelectedPlayerToTP].Character.HumanoidRootPart.CFrame
@@ -592,7 +658,7 @@ TeleportTab:CreateButton({
 
 TeleportTab:CreateSection("Island Teleport")
 TeleportTab:CreateDropdown({
-    Name = "Select Area", Options = {"Lost Isle", "Ancient Jungle", "Esoteric Depths", "Sacred Temple", "Fisherman Island"}, CurrentOption = {"Lost Isle"}, MultipleOptions = false, Flag = "TeleportArea", 
+    Name = "Select Area", Options = {"Lost Isle", "Ancient Jungle", "Esoteric Depths", "Sacred Temple", "Fisherman Island"}, CurrentOption = {"Lost Isle"}, MultipleOptions = false, Flag = "TeleportArea",    
     Callback = function(Options) _G_SelectedAreaToTP = Options[1] end,
 })
 TeleportTab:CreateButton({
@@ -610,7 +676,7 @@ local MiscTab = Window:CreateTab("⚙️ Misc", nil)
 
 -- SECTION SERVER INFO
 MiscTab:CreateSection("Server Info")
-InfoParagraph = MiscTab:CreateParagraph({Title = "Status", Content = "Initializing..."}) 
+InfoParagraph = MiscTab:CreateParagraph({Title = "Status", Content = "Initializing..."})    
 
 MiscTab:CreateButton({
     Name = "🔁 Rejoin Server",
@@ -625,14 +691,14 @@ MiscTab:CreateSection("Utility")
 MiscTab:CreateToggle({Name = "Super Low Graphics", CurrentValue = false, Flag = "LowGraphics", Callback = function(V) game.Lighting.GlobalShadows = not V end})
 MiscTab:CreateToggle({Name = "UI Spy (F9)", CurrentValue = false, Flag = "UISpy", Callback = function(V) _G.UISpy = V end})
 MiscTab:CreateButton({
-    Name = "🔴 Unload Script", 
-    Callback = function() 
-        _G_AutoUpdateStats=false 
-        _G_UISpy=false 
-        _G_ChatScan = false 
+    Name = "🔴 Unload Script",    
+    Callback = function()    
+        _G_AutoUpdateStats=false    
+        _G_UISpy=false    
+        _G_ChatScan = false    
         for _, conn in pairs(_G_ChatConnections) do conn:Disconnect() end
-        if _G_InfJumpConnection then _G_InfJumpConnection:Disconnect() end 
-        if _G_NoclipConnection then _G_NoclipConnection:Disconnect() end 
+        if _G_InfJumpConnection then _G_InfJumpConnection:Disconnect() end    
+        if _G_NoclipConnection then _G_NoclipConnection:Disconnect() end    
     end
 })
 
@@ -667,4 +733,3 @@ MiscTab:CreateToggle({
 })
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
-
