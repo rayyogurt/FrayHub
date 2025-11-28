@@ -14,8 +14,8 @@ local function SendToDiscord(msg, rarity, colorDec, source)
     local playerDisplay = player.DisplayName
 
     local embedData = {
-        ["username"] = "Frayhub Logger",
-        ["avatar_url"] = "https://i.imgur.com/Y8UeGkS.png",
+        ["username"] = "Frayhub Notification",
+        ["avatar_url"] = "https://share.google/images/qvmsQaZadX4enqVzr",
         ["embeds"] = {{
             ["title"] = "🎣 " .. rarity .. " Catch Detected!",
             ["description"] = "**Item:** " .. msg, -- Pesan sudah bersih di sini
@@ -667,3 +667,4 @@ MiscTab:CreateToggle({
 })
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
+
