@@ -4,7 +4,6 @@ local _G_WebhookURL = "https://discord.com/api/webhooks/1442845013057863743/lJMK
 -- DATABASE IKAN SECRET BARU (Digunakan untuk deteksi di CheckRarity dan filter baru)
 local _G_SecretFishList = {
     -- Sisyphus Statue - Lost Isle
-    "Sisyphus Statue",
     "Robot Kraken",
     "Giant Squid",
     "Panther Eel",
@@ -398,3 +397,4 @@ LogTab:CreateButton({
 -- ...
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
+
