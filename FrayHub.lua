@@ -136,8 +136,7 @@ local function SendToDiscord(msg, rarity, colorDec, source, fishData)
 end
 
 -- [[ 3. LOAD UI RAYFIELD ]] --
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/rayyogurt/FrayHub/refs/heads/main/UI%20FrayHub"))()
-
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "FrayHub | Main Version 1.2",
     Icon = 0,
@@ -747,6 +746,7 @@ MiscTab:CreateToggle({
 })
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
+
 
 
 
