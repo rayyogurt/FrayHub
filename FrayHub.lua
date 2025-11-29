@@ -6,6 +6,12 @@ if _G.FrayhubConnections then
     _G.FrayhubConnections = {}
 end
 
+-- Cleanup Variable Scanner Khusus
+if _G.ActiveScannerConnection then
+    _G.ActiveScannerConnection:Disconnect()
+    _G.ActiveScannerConnection = nil
+end
+
 -- Hapus UI Lama
 local CoreGui = game:GetService("CoreGui")
 if CoreGui:FindFirstChild("FrayHub | Main Version 2.0") then
@@ -119,6 +125,7 @@ local Window = Rayfield:CreateWindow({
 -- Variabel Global Runtime
 local _G_InfJumpConnection = nil
 local _G_NoclipConnection = nil
+local _G_ActiveScannerConnection = nil -- Variabel khusus untuk Scanner agar tidak double
 local _G_SelectedPlayerToTP = nil
 local _G_SelectedAreaToTP = "Lost Isle"
 local _G_AutoUpdateStats = false
@@ -204,14 +211,12 @@ end
 local HomeTab = Window:CreateTab("🏠 Home", nil)
 local HomeSection = HomeTab:CreateSection("Community Hub")
 
--- BAGIAN IMAGE DIHAPUS SESUAI PERMINTAAN
-
 HomeTab:CreateParagraph({Title = "FrayHub | Community", Content = "Join our Discord for Keys, Updates & Support"})
 
 HomeTab:CreateButton({
     Name = "Copy Link Join Discord Here",
     Callback = function()
-        setclipboard("https://discord.gg/cPDWVsgx") -- Ganti link
+        setclipboard("https://discord.gg/cPDWVsgx")
         Rayfield:Notify({Title = "Link Copied", Content = "Discord Link copied to clipboard!", Duration = 3})
     end,
 })
@@ -298,59 +303,72 @@ TeleportTab:CreateButton({
 })
 
 --[[ ==========================================
-                TAB 4: LOG
+                TAB 4: LOG (COMBINED)
 ========================================== ]]--
 local LogTab = Window:CreateTab("📜 Log", nil)
 
--- Section 1: Chat Scanner
-LogTab:CreateSection("Chat Scanner & Filter")
+-- Section 1: Chat Scanner Combined
+LogTab:CreateSection("Scanner & Filter (Combined)")
+
+-- Fungsi Helper untuk Menangani Pesan
+local function HandleScannedMessage(msg, source)
+    ProcessMessage(msg, source)
+end
 
 LogTab:CreateToggle({
-    Name = "✨ Only Scan Secret / Custom Target", CurrentValue = false, Flag = "ScanSecretToggle",
+    Name = "✨ Start Auto Scan (Secret & Custom Only)",
+    CurrentValue = false,
+    Flag = "AutoScanCombined",
     Callback = function(Value)
-        _G_ScanSecretToggle = Value
-        if Value then Rayfield:Notify({Title = "Filter Active", Content = "HANYA Secret & Custom.", Duration = 2})
-        else Rayfield:Notify({Title = "Filter Off", Content = "Semua rarity.", Duration = 2}) end
-    end,
-})
+        -- 1. Set Status Global
+        _G.ScanSecretToggle = Value -- Otomatis filter aktif saat scan nyala
+        _G.ChatScan = Value
+        
+        -- 2. Matikan Koneksi Lama (Agar tidak double)
+        if _G_ActiveScannerConnection then
+            _G_ActiveScannerConnection:Disconnect()
+            _G_ActiveScannerConnection = nil
+        end
 
-LogTab:CreateToggle({
-    Name = "Auto Scan Chat System", 
-    CurrentValue = false, Flag = "ChatScan",
-    Callback = function(Value)
-        _G_ChatScan = Value
+        -- 3. Jika Dinyalakan, Buat Koneksi Baru
         if Value then
             if game:GetService("TextChatService").ChatVersion == Enum.ChatVersion.TextChatService then
-                local conn = game:GetService("TextChatService").MessageReceived:Connect(function(msgObj)
+                -- Support Roblox Chat Baru (TextChatService)
+                _G_ActiveScannerConnection = game:GetService("TextChatService").MessageReceived:Connect(function(msgObj)
                     local source = msgObj.PrefixText or "Unknown"
                     source = source:gsub("<[^>]+>", ""):gsub(":", "")
                     if source == "" or string.find(source, "Server") then source = "Server" end
                     if string.find(source, "System") then source = "System" end
-                    ProcessMessage(msgObj.Text, source) 
+                    HandleScannedMessage(msgObj.Text, source) 
                 end)
-                table.insert(_G.FrayhubConnections, conn)
             else
+                -- Support Roblox Chat Lama (LegacyChat)
                 local ChatEvents = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
                 if ChatEvents then
                     local OnMessage = ChatEvents:FindFirstChild("OnMessageDoneFiltering")
                     if OnMessage then
-                        local conn = OnMessage.OnClientEvent:Connect(function(data)
+                        _G_ActiveScannerConnection = OnMessage.OnClientEvent:Connect(function(data)
                             local source = data.FromSpeaker or "System"
-                            ProcessMessage(data.Message, source)
+                            HandleScannedMessage(data.Message, source)
                         end)
-                        table.insert(_G.FrayhubConnections, conn)
                     end
                 end
             end
-            Rayfield:Notify({Title = "Scanner Started", Content = "Monitoring system chat...", Duration = 3})
+            
+            -- Masukkan ke tabel global untuk fitur Unload Script
+            if _G_ActiveScannerConnection then
+                table.insert(_G.FrayhubConnections, _G_ActiveScannerConnection)
+            end
+
+            Rayfield:Notify({Title = "Scanner Started", Content = "Scanning Secret & Custom targets only...", Duration = 3})
         else
-            Rayfield:Notify({Title = "Scanner Paused", Content = "Stopped.", Duration = 3})
+            Rayfield:Notify({Title = "Scanner Stopped", Content = "Monitoring paused.", Duration = 2})
         end
     end,
 })
 
 -- Section 2: Custom Target
-LogTab:CreateSection("Custom Target Scan") 
+LogTab:CreateSection("Custom Target List") 
 
 local function UpdateCustomListUI()
     local listContent = "None"
@@ -407,9 +425,18 @@ function ProcessMessage(msg, source)
 
     local msgRarity = CheckRarity(cleanMsg)
     local isAllowed = false
-    if isCustomTarget then isAllowed = true; msgRarity = "Custom Target"
-    elseif _G_ScanSecretToggle then if msgRarity == "Secret" then isAllowed = true end
-    else if msgRarity ~= "Other" then isAllowed = true end end
+    
+    -- LOGIKA FILTER DI SINI:
+    -- Karena tombol sudah disatukan, kita anggap filter Secret/Custom SELALU AKTIF jika scan jalan.
+    if isCustomTarget then 
+        isAllowed = true; msgRarity = "Custom Target"
+    elseif _G.ScanSecretToggle then 
+        -- _G.ScanSecretToggle otomatis TRUE saat tombol dinyalakan
+        if msgRarity == "Secret" then isAllowed = true end
+    else 
+        -- Fallback jika user mematikan filter (tapi di skrip ini sudah diset true)
+        if msgRarity ~= "Other" then isAllowed = true end 
+    end
     
     if not isAllowed then return end
 
@@ -668,12 +695,16 @@ MiscTab:CreateButton({
         if _G_InfJumpConnection then _G_InfJumpConnection:Disconnect() end
         if _G_NoclipConnection then _G_NoclipConnection:Disconnect() end
         if _G.AntiAFKConnection then _G.AntiAFKConnection:Disconnect() end
+        
+        -- Matikan Scanner Khusus juga
+        if _G_ActiveScannerConnection then
+             _G_ActiveScannerConnection:Disconnect()
+        end
 
         -- 3. Hancurkan UI
         Rayfield:Destroy()
         
         -- 4. Reset variabel lokal script (jika dijalankan ulang, akan reset otomatis)
-        -- Notifikasi akhir
         print("FrayHub Unloaded Completely.")
     end
 })
