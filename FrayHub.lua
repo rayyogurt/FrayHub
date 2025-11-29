@@ -38,7 +38,9 @@ local _G_SecretFishList = {
 
     "Blob Shark", "Ghost Shark", "Megalodon", "Crystal Crab", "Orca",
 
-    "Great Whale"
+    "Great Whale", "Lochness Monster", "Ghost Worm", "Frostborn Shark",
+
+    "Monster Shark", "Erie Shark", "Worm Fish"
 
 }
 
@@ -48,7 +50,7 @@ local _G_SecretFishList = {
 
 local _G_CustomFishList = {
 
-    "Sacred Guardian Squid", "Manoai Statue Fish"
+    "Sacred Guardian Squid"
 
 }
 
@@ -1493,3 +1495,4 @@ MiscTab:CreateToggle({
 
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
+
