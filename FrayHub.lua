@@ -27,12 +27,64 @@ local _G_WebhookURL = "https://discord.com/api/webhooks/1442845013057863743/lJMK
 
 -- DATABASE IKAN SECRET 
 local _G_SecretFishList = {
-    "Robot Kraken", "Giant Squid", "Panther Eel", "Cryoshade Glider",
-    "King Crab", "Queen Crab", "Mosasaur Shark", "King Jelly",
-    "Bone Whale", "Elshark Gran Maja", "Thin Armor Shark", "Scare",
-    "Blob Shark", "Ghost Shark", "Megalodon", "Crystal Crab", "Orca",
-    "Great Whale", "Lochness Monster", "Ghost Worm", "Frostborn Shark",
-    "Monster Shark", "Erie Shark", "Worm Fish"
+    -- [[ Fisherman Island ]]
+    "Crystal Crab",
+    "Orca",
+
+    -- [[ Kohana ]]
+    "Lochness Monster",
+
+    -- [[ Esoteric Depths ]]
+    "Thin Armor Shark",
+    "Scare",
+
+    -- [[ The Coral Reefs ]]
+    "Eerie Shark",
+    "Monster Shark",
+
+    -- [[ Tropical Grove ]]
+    "Great Whale",
+
+    -- [[ Crater Island / Icy ]]
+    "Frostborn Shark",
+
+    -- [[ Ocean / General ]]
+    "Worm Fish",
+    "Ghost Shark",
+    "Megalodon",
+    "Ghost Worm",
+    "Blob Shark",
+    "Skeleton Narwhal",
+
+    -- [[ Treasure Room (Lost Isle) ]]
+    "Queen Crab",
+    "King Crab",
+
+    -- [[ Sisyphus Statue (Lost Isle) ]]
+    "Panther Eel",
+    "Giant Squid",
+    "Robot Kraken",
+    "Cryoshade Glider",
+    "Depthseeker Ray",
+
+    -- [[ Ancient Jungle / Sacred Temple ]]
+    "Elshark Gran Maja",
+    "Bone Whale",
+    "Mosasaur Shark",
+    "King Jelly",
+
+    -- [[ Ancient Ruin ]]
+    "Ancient Lochness Monster",
+    "Gladiator Shark",
+
+    -- [[ Classic Island ]]
+    "ElRetro Gran Maja",
+    "1x1x1x1 Shark",
+
+    -- [[ Event Limited Fish ]]
+    "Bloodmoon Whale",
+    "Strawberry Choc Megalodon",
+    "Hacker Shark"
 }
 
 -- Custom List Default
@@ -710,3 +762,4 @@ MiscTab:CreateButton({
 })
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
+
