@@ -23,6 +23,7 @@ _G.ScanSecretToggle = false
 _G.ChatScan = false 
 
 -- [[ 1. KONFIGURASI UTAMA ]] --
+-- HATI-HATI: Jangan share script ini ke publik karena Webhook URL kamu terlihat!
 local _G_WebhookURL = "https://discord.com/api/webhooks/1442845013057863743/lJMKfMxHsoEw4UGnZ4mRed_JIK8mFNElRRqZ9imqSC-DdeWrYLIHufHpGf1KfNPpYtw4"
 
 -- DATABASE IKAN SECRET 
@@ -36,7 +37,7 @@ local _G_SecretFishList = {
 
     -- [[ Esoteric Depths ]]
     "Thin Armor Shark",
-    "Scare",
+    "Scare", -- Pastikan ejaan ini benar sesuai game
 
     -- [[ The Coral Reefs ]]
     "Eerie Shark",
@@ -105,30 +106,62 @@ local function ParseFishData(msg)
         
         local detectedFishName = nil
         local allKnownFish = {}
+        
+        -- Masukkan semua ikan ke satu tabel
         for _, v in pairs(_G_SecretFishList) do table.insert(allKnownFish, v) end
         for _, v in pairs(_G_CustomFishList) do table.insert(allKnownFish, v) end
         
+        -- [[ FIX PENTING: SORTING ]] --
+        -- Urutkan dari nama TERPANJANG ke TERPENDEK.
+        -- Ini supaya "Ancient Lochness Monster" terdeteksi DULUAN sebelum "Lochness Monster".
+        table.sort(allKnownFish, function(a, b) return #a > #b end)
+        
         for _, fish in pairs(allKnownFish) do
             if fullContent:lower():find(fish:lower(), 1, true) then
-                detectedFishName = fish; break
+                detectedFishName = fish
+                break -- Berhenti di match pertama (yang terpanjang)
             end
         end
         
         if detectedFishName then
             data.FishName = detectedFishName
+            -- Escape karakter spesial untuk regex
             local safeFishName = detectedFishName:lower():gsub("([%-%^%$%(%)%%%.%[%]%*%+%?])", "%%%1")
             local mutationStr = fullContent:lower():gsub(safeFishName, "")
-            mutationStr = mutationStr:gsub("^%s+", ""):gsub("%s+$", "")
+            mutationStr = mutationStr:gsub("^%s+", ""):gsub("%s+$", "") -- Trim spasi
+            
             if mutationStr ~= "" and mutationStr ~= " " then
+                -- Format Mutation huruf besar awal
                 data.Mutation = mutationStr:sub(1,1):upper()..mutationStr:sub(2)
             else
                 data.Mutation = "None"
             end
         else
-            data.FishName = fullContent; data.Mutation = "None"
+            data.FishName = fullContent
+            data.Mutation = "None"
         end
     end
     return data
+end
+
+local function CheckRarity(msg)
+    local msgLower = msg:lower()
+
+    -- [[ PRIORITAS 1: CEK DATABASE USER DULU ]] --
+    -- Ini menjamin APAPUN yang kamu tulis di _G_SecretFishList akan dianggap SECRET.
+    -- Mengatasi masalah "Strawberry Choc Megalodon" yang sebelumnya dianggap Legendary.
+    for _, secretName in ipairs(_G_SecretFishList) do 
+        if string.find(msgLower, secretName:lower()) then 
+            return "Secret" 
+        end 
+    end
+
+    -- [[ PRIORITAS 2: CEK KEYWORD UMUM ]] --
+    if string.find(msg, "Enchant Stone") or string.find(msg, "Astra Damsel") then return "Epic" end
+    if string.find(msg, "Magic Tang") or string.find(msg, "Big Temple") or string.find(msg, "Megalodon") then return "Legendary" end
+    if string.find(msg, "Mythic") or string.find(msg, "Abyssal") then return "Mythic" end
+    
+    return "Other"
 end
 
 local function SendToDiscord(msg, rarity, colorDec, source, fishData)
@@ -258,7 +291,7 @@ local function GetPlayerNamesForList()
 end
 
 --[[ ==========================================
-                TAB 1: HOME (SIMPLE VERSION)
+                TAB 1: HOME
 ========================================== ]]--
 local HomeTab = Window:CreateTab("🏠 Home", nil)
 local HomeSection = HomeTab:CreateSection("Community Hub")
@@ -290,32 +323,30 @@ PlayerTab:CreateSlider({
 PlayerTab:CreateToggle({
     Name = "Infinite Jump", CurrentValue = false, Flag = "InfJump",
     Callback = function(Value)
-       if Value then
-           _G_InfJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
-               game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-           end)
-           table.insert(_G.FrayhubConnections, _G_InfJumpConnection)
-       else
-           if _G_InfJumpConnection then _G_InfJumpConnection:Disconnect() _G_InfJumpConnection = nil end
-       end
+        if _G_InfJumpConnection then _G_InfJumpConnection:Disconnect() _G_InfJumpConnection = nil end
+        if Value then
+            _G_InfJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+                game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            end)
+            table.insert(_G.FrayhubConnections, _G_InfJumpConnection)
+        end
     end,
 })
 
 PlayerTab:CreateToggle({
     Name = "Noclip", CurrentValue = false, Flag = "Noclip",
     Callback = function(Value)
-       if Value then
-           _G_NoclipConnection = game:GetService("RunService").Stepped:Connect(function()
-               if game.Players.LocalPlayer.Character then
-                   for _, v in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
-                       if v:IsA("BasePart") then v.CanCollide = false end
-                   end
-               end
-           end)
-           table.insert(_G.FrayhubConnections, _G_NoclipConnection)
-       else
-           if _G_NoclipConnection then _G_NoclipConnection:Disconnect() _G_NoclipConnection = nil end
-       end
+        if _G_NoclipConnection then _G_NoclipConnection:Disconnect() _G_NoclipConnection = nil end
+        if Value then
+            _G_NoclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                if game.Players.LocalPlayer.Character then
+                    for _, v in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide = false end
+                    end
+                end
+            end)
+            table.insert(_G.FrayhubConnections, _G_NoclipConnection)
+        end
     end,
 })
 
@@ -334,10 +365,10 @@ TeleportTab:CreateButton({
 TeleportTab:CreateButton({
     Name = "🚀 Teleport to Selected Player",
     Callback = function()
-       if _G_SelectedPlayerToTP and game.Players:FindFirstChild(_G_SelectedPlayerToTP) then
-           game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players[_G_SelectedPlayerToTP].Character.HumanoidRootPart.CFrame
-           Rayfield:Notify({Title = "Success", Content = "Teleported!", Duration = 2})
-       end
+        if _G_SelectedPlayerToTP and game.Players:FindFirstChild(_G_SelectedPlayerToTP) then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players[_G_SelectedPlayerToTP].Character.HumanoidRootPart.CFrame
+            Rayfield:Notify({Title = "Success", Content = "Teleported!", Duration = 2})
+        end
     end,
 })
 
@@ -355,14 +386,12 @@ TeleportTab:CreateButton({
 })
 
 --[[ ==========================================
-                TAB 4: LOG (COMBINED)
+                TAB 4: LOG
 ========================================== ]]--
 local LogTab = Window:CreateTab("📜 Log", nil)
 
--- Section 1: Chat Scanner Combined
 LogTab:CreateSection("Scanner & Filter (Combined)")
 
--- Fungsi Helper untuk Menangani Pesan
 local function HandleScannedMessage(msg, source)
     ProcessMessage(msg, source)
 end
@@ -372,20 +401,16 @@ LogTab:CreateToggle({
     CurrentValue = false,
     Flag = "AutoScanCombined",
     Callback = function(Value)
-        -- 1. Set Status Global
-        _G.ScanSecretToggle = Value -- Otomatis filter aktif saat scan nyala
+        _G.ScanSecretToggle = Value 
         _G.ChatScan = Value
         
-        -- 2. Matikan Koneksi Lama (Agar tidak double)
         if _G_ActiveScannerConnection then
             _G_ActiveScannerConnection:Disconnect()
             _G_ActiveScannerConnection = nil
         end
 
-        -- 3. Jika Dinyalakan, Buat Koneksi Baru
         if Value then
             if game:GetService("TextChatService").ChatVersion == Enum.ChatVersion.TextChatService then
-                -- Support Roblox Chat Baru (TextChatService)
                 _G_ActiveScannerConnection = game:GetService("TextChatService").MessageReceived:Connect(function(msgObj)
                     local source = msgObj.PrefixText or "Unknown"
                     source = source:gsub("<[^>]+>", ""):gsub(":", "")
@@ -394,7 +419,6 @@ LogTab:CreateToggle({
                     HandleScannedMessage(msgObj.Text, source) 
                 end)
             else
-                -- Support Roblox Chat Lama (LegacyChat)
                 local ChatEvents = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
                 if ChatEvents then
                     local OnMessage = ChatEvents:FindFirstChild("OnMessageDoneFiltering")
@@ -407,7 +431,6 @@ LogTab:CreateToggle({
                 end
             end
             
-            -- Masukkan ke tabel global untuk fitur Unload Script
             if _G_ActiveScannerConnection then
                 table.insert(_G.FrayhubConnections, _G_ActiveScannerConnection)
             end
@@ -419,7 +442,6 @@ LogTab:CreateToggle({
     end,
 })
 
--- Section 2: Custom Target
 LogTab:CreateSection("Custom Target List") 
 
 local function UpdateCustomListUI()
@@ -444,19 +466,8 @@ LogTab:CreateButton({
     Callback = function() _G_CustomFishList = {}; UpdateCustomListUI(); Rayfield:Notify({Title = "Reset", Content = "List cleared.", Duration = 2}) end,
 })
 
--- Section 3: Output
 LogTab:CreateSection("Log Output")
 LogParagraph = LogTab:CreateParagraph({Title = "Log Output", Content = "Waiting for data..."})
-
--- Helper Functions for Logging (Placed here for context)
-local function CheckRarity(msg)
-    local msgLower = msg:lower()
-    if string.find(msg, "Enchant Stone") or string.find(msg, "Astra Damsel") then return "Epic" end
-    if string.find(msg, "Magic Tang") or string.find(msg, "Big Temple") or string.find(msg, "Megalodon") then return "Legendary" end
-    if string.find(msg, "Mythic") or string.find(msg, "Abyssal") then return "Mythic" end
-    for _, secretName in ipairs(_G_SecretFishList) do if string.find(msgLower, secretName:lower()) then return "Secret" end end
-    return "Other"
-end
 
 local function UpdateLogDisplay()
     local content = table.concat(_G_LogHistory, "\n\n")
@@ -478,15 +489,11 @@ function ProcessMessage(msg, source)
     local msgRarity = CheckRarity(cleanMsg)
     local isAllowed = false
     
-    -- LOGIKA FILTER DI SINI:
-    -- Karena tombol sudah disatukan, kita anggap filter Secret/Custom SELALU AKTIF jika scan jalan.
     if isCustomTarget then 
         isAllowed = true; msgRarity = "Custom Target"
     elseif _G.ScanSecretToggle then 
-        -- _G.ScanSecretToggle otomatis TRUE saat tombol dinyalakan
         if msgRarity == "Secret" then isAllowed = true end
     else 
-        -- Fallback jika user mematikan filter (tapi di skrip ini sudah diset true)
         if msgRarity ~= "Other" then isAllowed = true end 
     end
     
@@ -528,26 +535,21 @@ LogTab:CreateButton({
 ========================================== ]]--
 local DataTab = Window:CreateTab("📊 Data", nil)
 
--- Section: Live Player Data & Filter
 local DataSection = DataTab:CreateSection("Live Player Data & Filter")
 
--- 1. Sort By
 DataTab:CreateDropdown({
     Name = "Sort By", Options = {"Name", "Location", "Rarest Fish"}, CurrentOption = {"Name"}, MultipleOptions = false, Flag = "SortDropdown",
     Callback = function(Options) _G_SortMethod = Options[1] end,
 })
 
--- 2. Player List Table (Paragraph)
 local StatsParagraph = DataTab:CreateParagraph({Title = "( Loading... )", Content = "Activate Auto Update to see list..."})
 
--- 3. Filter / Favorite Players (Renamed)
 local FavoriteDropdown = DataTab:CreateDropdown({
     Name = "Favorite Players", 
     Options = GetPlayerNamesForList(), CurrentOption = {}, MultipleOptions = true, Flag = "FavoritePlayerFilter",
     Callback = function(Options) _G_FavoriteFilterList = Options end,
 })
 
--- 4. Refresh Button (Renamed)
 DataTab:CreateButton({
     Name = "Refresh Player List", 
     Callback = function()
@@ -556,7 +558,6 @@ DataTab:CreateButton({
     end,
 })
 
--- 5. Auto Update
 local function UpdatePlayerData()
     local tempStats = {}
     local players = game.Players:GetPlayers()
@@ -646,7 +647,6 @@ local ToggleAutoUpdate = DataTab:CreateToggle({
 ========================================== ]]--
 local MiscTab = Window:CreateTab("⚙️ Misc", nil)
 
--- Section: Server Info
 MiscTab:CreateSection("Server Info")
 InfoParagraph = MiscTab:CreateParagraph({Title = "Status", Content = "Initializing..."})
 
@@ -658,11 +658,9 @@ MiscTab:CreateButton({
     end,
 })
 
--- Section: Utility
 MiscTab:CreateSection("Utility")
 
 local function SuperLowGraphics()
-    -- Logika "Burik" Mode Ekstrim
     local terrain = workspace:FindFirstChildOfClass("Terrain")
     if terrain then
         terrain.WaterWaveSize = 0
@@ -675,7 +673,10 @@ local function SuperLowGraphics()
     lighting.Brightness = 0
     settings().Rendering.QualityLevel = "Level01"
     
-    for _, v in pairs(game:GetDescendants()) do
+    local targets = workspace:GetDescendants()
+    for _, v in pairs(game:GetService("Lighting"):GetDescendants()) do table.insert(targets, v) end
+
+    for _, v in pairs(targets) do
         if v:IsA("BasePart") then
             v.Material = Enum.Material.SmoothPlastic
             v.Reflectance = 0
@@ -732,12 +733,10 @@ MiscTab:CreateToggle({
 MiscTab:CreateButton({
     Name = "🔴 Unload Script",
     Callback = function()
-        -- 1. Matikan semua loop
         _G_AutoUpdateStats = false
         _G_ChatScan = false
         _G_ScanSecretToggle = false
         
-        -- 2. Putuskan semua koneksi
         if _G.FrayhubConnections then
             for _, conn in pairs(_G.FrayhubConnections) do
                 if conn then conn:Disconnect() end
@@ -748,18 +747,14 @@ MiscTab:CreateButton({
         if _G_NoclipConnection then _G_NoclipConnection:Disconnect() end
         if _G.AntiAFKConnection then _G.AntiAFKConnection:Disconnect() end
         
-        -- Matikan Scanner Khusus juga
         if _G_ActiveScannerConnection then
              _G_ActiveScannerConnection:Disconnect()
         end
 
-        -- 3. Hancurkan UI
         Rayfield:Destroy()
         
-        -- 4. Reset variabel lokal script (jika dijalankan ulang, akan reset otomatis)
         print("FrayHub Unloaded Completely.")
     end
 })
 
 Rayfield:Notify({Title = "Frayhub Loaded", Content = "All Systems Go!", Duration = 5, Image = nil})
-
